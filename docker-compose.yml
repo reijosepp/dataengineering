@@ -1,0 +1,19 @@
+# Docker compose file based on instructions from https://herewecode.io/blog/create-a-postgresql-database-using-docker-compose/
+
+
+version: '3' # use latest available docker compose version (version 3)
+
+services:
+
+  database:
+    image: 'postgres:latest' # use latest available postgres version
+    ports:
+      - 5432:5432 # port for connecting to the database on local computer
+
+    environment:
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: default_database
+      
+    volumes:
+      - ./db-data/:/var/lib/postgresql/data/ # local folder to save information to
