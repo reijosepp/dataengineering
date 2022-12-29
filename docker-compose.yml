@@ -5,8 +5,12 @@ version: '3' # use latest available docker compose version (version 3)
 
 services:
 
-  database:
-    image: 'postgres:latest' # use latest available postgres version
+
+  # Postgres database (relational)
+  postgres:
+
+    image: postgres:latest # use latest available postgres version
+
     ports:
       - 5432:5432 # port for connecting to the database on local computer
 
@@ -17,3 +21,41 @@ services:
       
     volumes:
       - ./db-data/:/var/lib/postgresql/data/ # local folder to save information to
+    
+    networks:
+      - project
+
+
+  # PGAdmin service for UI to interact with database
+  pgadmin:
+
+    image: dpage/pgadmin4:latest
+
+    ports:
+      - 5050:80
+
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: root 
+
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    
+    networks:
+      - project
+
+
+networks:
+  project:
+
+volumes: 
+  pgadmin_data:
+
+  # Neo4j database (graph database)
+  #neo4j:
+  #  image:
+
+
+  # Apache Airflow (for pipeline)
+  #airflow:
+  #  image: ''
