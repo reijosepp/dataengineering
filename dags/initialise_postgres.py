@@ -1,5 +1,9 @@
 from datetime import timedelta
 
+from airflow import DAG
+from airflow.providers.postgres.operators.postgres import PostgresOperator
+from airflow.utils.dates import days_ago
+
 DEFAULT_ARGS = {
     'owner': 'Tartu',
     'depends_on_past': False,
