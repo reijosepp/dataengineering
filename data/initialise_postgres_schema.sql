@@ -73,7 +73,7 @@ create table if not exists public.article (
 );
 
 
--- create table JOURNAL based on design document
+-- create table ARTICLE_VERSION based on design document
 create table if not exists public.article_version (
 
 	article_id integer not null,
