@@ -73,6 +73,19 @@ create table if not exists public.article (
 );
 
 
+-- create table JOURNAL based on design document
+create table if not exists public.article_version (
+
+	article_id integer not null,
+	article_version_id integer not null,
+	publication_date date not null,
+	
+	foreign key (article_id) references article(article_id),
+	primary key (article_id, article_version_id)
+	
+);
+
+
 -- create bridge table CITATION
 create table if not exists public.citation (
 
