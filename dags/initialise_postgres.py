@@ -31,4 +31,13 @@ first_task = PostgresOperator(
     autocommit=True,
 )
 
-first_task
+second_task = PostgresOperator(
+    task_id='create_bi_views',
+    dag=initialise_postgres_dag,
+    postgres_conn_id='airflow_pg',
+    sql='create_bi_views_postgres.sql',
+    trigger_rule='none_failed',
+    autocommit=True,
+)
+
+first_task >> second_task
