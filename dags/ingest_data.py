@@ -5,6 +5,11 @@ from datetime import datetime, timedelta
 import crossref_commons.retrieval
 import pandas as pd
 import os
+import numpy as np
+from fastparquet import ParquetFile
+from fastparquet import write
+from datetime import datetime
+
 
 from airflow import DAG 
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
@@ -50,12 +55,43 @@ def transform_data(input_folder,output_folder):
     articles = articles[articles['authors'].notna()]
     #drop abstract, report-no and license
     articles = articles.drop(columns=['report-no', 'abstract','license'],axis=1)
+    articles = articles.fillna(value=np.nan)
+    articles['doi'] = articles['doi'].astype('str') 
+    ##extract pages
+    articles["pages"] = articles["comments"].str.findall("\d+ page")
+    articles["pages"] = articles["pages"].replace(np.nan)
+    articles['pages'] = articles['pages'].astype('str') 
+    articles["pages"] = articles["pages"].replace("[]","0")
+    articles["pages"] = articles["pages"].str.extract("(\d+)")
+    ##extract figures
+    articles["figures"] = articles["comments"].str.findall("\d+ figure")
+    articles["figures"] = articles["figures"].replace(np.nan)
+    articles['figures'] = articles['figures'].astype('str') 
+    articles["figures"] = articles["figures"].replace("[]","0")
+    articles["figures"] = articles["figures"].str.extract("(\d+)")
+    articles = articles.drop(columns=['comments'],axis=1)
+    articles['id'] = articles['id'].astype('str') 
+    articles["year"] = 2000 + articles["id"].str[0].astype(int)
+    articles["month"] = articles["id"].str[1:3].astype(int)
+    version = articles[["doi","versions"]]
+    authors = articles[["doi","authors"]]
+    categories = articles[["doi","categories"]]
+    articles = articles.drop(columns=["authors","authors_parsed","versions"])
+    authors["authors"] = authors["authors"].str.replace(" and ",",")
+    authors["authors"] = authors["authors"].str.split(",")
+    authors = authors.explode("authors")
+    authors.rename(columns = {'authors':'author'}, inplace = True)
+    articles = (pd.merge(authors, articles, on='doi',  how='left'))
+    versions_split = (pd.concat({k: pd.DataFrame(v) for k, v in version.pop('versions').items()})
+         .reset_index(level=1, drop=True))
+    version = version.join(versions_split, rsuffix='_').reset_index(drop=True)
+    articles = (pd.merge(version, articles, on='doi',  how='left'))
+    articles['created'] = articles['created'].astype('str') 
+    articles['created'] = articles['created'].str.slice(5, 16)
+    articles['created'] = articles['created'].replace(r"^ +| +$", r"", regex=True)
+    articles['created'] = pd.to_datetime(articles['created'], format='%d %b %Y')
+    write(f'{output_folder}/processed_data/articles.parq', articles)
 
-def create_citations(article_df):
-    # Create file for references
-    # Select n articles from each category, 
-    # if reference exists in dataframe: save doi-doi file
-    return 0
 
 first_task = PythonOperator(
     task_id='prepare_insert_stmt',
@@ -64,6 +100,7 @@ first_task = PythonOperator(
     python_callable=transform_data,
     op_kwargs={
         'input_folder': DATA_FOLDER,
+        'output_folder': PROCESSED_FOLDER,
     },
 )
 
