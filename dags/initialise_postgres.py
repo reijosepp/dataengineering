@@ -26,3 +26,5 @@ first_task = PostgresOperator(
     trigger_rule='none_failed',
     autocommit=True,
 )
+
+first_task
