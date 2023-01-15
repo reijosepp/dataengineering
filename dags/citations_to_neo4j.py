@@ -38,19 +38,15 @@ with DAG(
 
         filepath = f'{PROCESSED_FOLDER}/citations.csv'
 
-        try:
+        citations = pd.read_csv(filepath)
 
-            citations = pd.read_csv(filepath)
+        with driver.session(database='neo4j') as session:
 
-            with driver.session(database='neo4j') as session:
+            for i in range(len(citations)):
+                row = citations.iloc[i, :]
+                session.run(create_citation_relationship(row['doi1'], row['doi2']))
 
-                for i in range(len(citations)):
-                    session.run(create_citation_relationship(row['doi1'], row['doi2']))
-
-            driver.close()
-
-        except:
-            print('No citations file.')
+        driver.close()
 
     ############# Pipeline Tasks #############
 
