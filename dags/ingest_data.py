@@ -26,7 +26,7 @@ ingest_data_dag = DAG(
     schedule_interval='@once', # execute once
     start_date=days_ago(1), #must run manually
     catchup=False, # in case execution has been paused, should it execute everything in between
-    template_searchpath=PROCESSED_FOLDER+"/processed_data", # the PostgresOperator will look for files in this folder
+    template_searchpath=PROCESSED_FOLDER", # the PostgresOperator will look for files in this folder
     default_args=DEFAULT_ARGS, # args assigned to all operators
 )
 
@@ -68,7 +68,7 @@ def transform_data(source_folder,output_folder):
         version = articles[["doi","versions"]]
         authors = articles[["doi","authors_parsed"]]
         categories = articles[["doi","categories"]]
-        articles = articles.drop(columns=["authors","authors_parsed","versions","journal-ref"])
+        articles = articles.drop(columns=["authors","authors_parsed","versions"])
         authors['authors_parsed'] = authors['authors_parsed'].astype('string') 
         authors["authors_par_"] = authors["authors_parsed"].str.findall("\[(.*?)\]")
         authors['authors_par_'] = authors['authors_par_'].astype('str') 
