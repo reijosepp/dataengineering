@@ -55,7 +55,7 @@ def create_staging(input_folder, output_folder):
               id = row["id"]
               submitter = str(row["submitter"]).replace("'","").replace("{","\{").replace("=","\=").replace("}","\}")
               title = str(row["title"]).replace("'","").replace("{","\{").replace("=","\=").replace("}","\}")
-              categories = row["categories"]
+              categories = str(row["categories"]).split(" ")[0]
               update_date = row["update_date"]
               pages = row["pages"]
               figures = row["figures"]
