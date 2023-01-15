@@ -18,7 +18,7 @@ load_postgres_dag = DAG(
     schedule_interval='@once', # execute every minute
     start_date=days_ago(1),
     catchup=False, # in case execution has been paused, should it execute everything in between
-    template_searchpath=DATA_FOLDER, # the PostgresOperator will look for files in this folder
+    template_searchpath=SQL, # the PostgresOperator will look for files in this folder
     default_args=DEFAULT_ARGS, # args assigned to all operators
 )
 
