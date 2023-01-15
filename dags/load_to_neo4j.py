@@ -4,7 +4,8 @@ import os
 import random
 import neo4j
 from airflow import DAG
-from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
+from airflow.operators.python_operator import PythonOperator
+from airflow.providers.neo4j.operators.neo4j import Neo4jOperator
 
 import pandas as pd
 
@@ -24,7 +25,7 @@ with DAG(
 
     ############# Neo4j Functions #############
 
-    driver = neo4j.GraphDatabase.driver('bolt://172.25.0.4', auth=None)
+    driver = neo4j.GraphDatabase.driver('bolt://172.25.0.3', auth=None)
 
     def create_article_node(doi, title, pages, figures):
         return f'CREATE (n:Article {{doi: "{doi}", title: "{title}", pages: {pages}, figures: {figures}}})'
@@ -35,8 +36,8 @@ with DAG(
     def create_journal_node(journal):
         return f'CREATE (n:Journal {{journal: "{journal}"}})'
     
-    def create_category_node(category, category_name):
-        return f'CREATE (n:Category {{category: "{category}", category_name: "{category_name}"}})'
+    def create_discipline_node(category_name):
+        return f'CREATE (n:Discipline {{discipline: "{category_name}"}})'
 
     def create_article_version_node(doi, version, created):
         return f'CREATE (n:Version {{doi: "{doi}", version: "{version}", created: "{created}""}})'
@@ -54,9 +55,9 @@ with DAG(
                 f'WHERE a.doi = "{doi}" AND b.journal = "{journal}"' 
                 f'CREATE (a)-[r:IS_PUBLISHED_IN]->(b)'	)
 
-    def create_belongs_to_relationship(doi, category):
-        return (f'MATCH (a:Article), (b:Category)' 
-                f'WHERE a.doi = "{doi}" AND b.category = "{category}"' 
+    def create_belongs_to_relationship(doi, discipline):
+        return (f'MATCH (a:Article), (b:Discipline)' 
+                f'WHERE a.doi = "{doi}" AND b.discipline = "{discipline}"' 
                 f'CREATE (a)-[r:BELONGS_TO]->(b)')
 
     def node_exists(type, field, id):
@@ -82,7 +83,7 @@ with DAG(
 
         filepath = get_csv_filename()
 
-        categories_lookup_table_filename = './/data//categories_lookup.csv'
+        categories_lookup_table_filename = './/lookup_tables//categories_lookup.csv'
         categories_lookup = pd.read_csv(categories_lookup_table_filename)
         cat = {}
         for i in range(len(categories_lookup)):
@@ -111,8 +112,8 @@ with DAG(
                     if (not session.run(node_exists('Journal', 'journal', row['journal-ref'])).single().value()):
                         session.run(create_journal_node(str(row['journal-ref']).replace('"', '')))
                     
-                    if (not session.run(node_exists('Category', 'category', row['categories'])).single().value()):
-                        session.run(create_category_node(row['categories'], cat[row['category']]))
+                    if (not session.run(node_exists('Discipline', 'discipline', cat[row['categories'].split(" ")[0]])).single().value()):
+                        session.run(create_discipline_node(cat[row['categories'].split(" ")[0]]))
                     
                     if (not session.run(relationship_exists('AUTHORS', 'Author', 'Article', 'name', 'doi', row['author'], row['doi'])).single().value()):
                         session.run(create_authorship_relationship(row['doi'], row['author']))
@@ -120,8 +121,8 @@ with DAG(
                     if (not session.run(relationship_exists('IS_PUBLISHED_IN', 'Article', 'Journal', 'doi', 'journal', row['doi'], row['journal-ref'])).single().value()):
                         session.run(create_is_published_in_relationship(row['doi'], str(row['journal-ref']).replace('"', '')))
 
-                    if (not session.run(relationship_exists('BELONGS_TO', 'Article', 'Category', 'doi', 'category', row['doi'], row['categories'])).single().value()):
-                        session.run(create_belongs_to_relationship(row['doi'], row['categories']))
+                    if (not session.run(relationship_exists('BELONGS_TO', 'Article', 'Discipline', 'doi', 'discipline', row['doi'], cat[row['categories'].split(" ")[0]])).single().value()):
+                        session.run(create_belongs_to_relationship(row['doi'], cat[row['categories'].split(" ")[0]]))
 
             driver.close()
 
@@ -137,4 +138,18 @@ with DAG(
         dag=dag
         )
 
-    populate_data
+    update_discipline_journal_ties = Neo4jOperator(
+        task_id = 'update_publishes_from_relationships',
+        neo4j_conn_id="airflow_neo4j",
+        sql='MATCH (j:Journal)<-[IS_PUBLISHED_IN]-(a:Article)-[BELONGS_TO]->(d:Discipline) MERGE (j) -[r:PUBLISHES_FROM]-> (d)',
+        dag=dag,
+    )
+
+    update_has_published_in_ties = Neo4jOperator(
+        task_id = 'update_has_published_in_relationships',
+        neo4j_conn_id="airflow_neo4j",
+        sql='MATCH (j:Journal)<-[IS_PUBLISHED_IN]-(a:Article)<-[AUTHORS]-(b:Author) MERGE (b)-[r:HAS_PUBLISHED_IN]->(j)',
+        dag=dag,
+    )
+
+    populate_data >> update_discipline_journal_ties  >> update_has_published_in_ties

@@ -63,6 +63,7 @@ x-airflow-common: &airflow-common
     - ./plugins:/opt/airflow/plugins
     - ./data:/tmp/data
     - ./processed_data:/opt/airflow/processed_data
+    - ./lookup_tables:/opt/airflow/lookup_tables
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on: &airflow-common-depends-on
     redis:
