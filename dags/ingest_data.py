@@ -201,4 +201,4 @@ third_task = PostgresOperator(
     autocommit=True,
 )
 
-first_task >> third_task
+first_task >> second_task >> third_task
