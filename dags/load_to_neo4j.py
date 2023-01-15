@@ -26,7 +26,7 @@ load_to_neo4j_dag = DAG(
 neo4j_task = Neo4jOperator(
     task_id="run_neo4j_query",
     neo4j_conn_id="airflow_neo4j",
-    sql='MATCH (tom {name: "Tom Hanks", date: "{{ds}}"}) RETURN tom',
+    sql='CREATE (n:Person {name: "Reijo Sepp", age: 25})',
     dag=load_to_neo4j_dag,
 )
 
