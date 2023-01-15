@@ -10,6 +10,11 @@ Course project
 
 ![image](https://user-images.githubusercontent.com/65699582/212529234-11d0113f-18eb-4744-ac8f-a9625ce79b52.png)
 
+## Connection to local file system:
+
+![image](https://user-images.githubusercontent.com/65699582/212567256-bfe28945-a46b-499e-8d67-9ec942eb6b68.png)
+
+
 ## Connection in pgadmin:
 
 ![pgadmin_postgres_conn](https://user-images.githubusercontent.com/73596929/210316541-083e41a4-d30b-44e7-90cc-7fa2bb5b3128.png)
