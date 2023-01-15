@@ -18,7 +18,7 @@ DATA_FOLDER = './data'
 PROCESSED_FOLDER = os.getcwd()
 
 test_dag = DAG(
-    dag_id='test', # name of dag
+    dag_id='load_citations', # name of dag
     schedule_interval='@once', # execute once
     start_date=days_ago(1), #must run manually
     catchup=False, # in case execution has been paused, should it execute everything in between
@@ -48,9 +48,13 @@ def generate_citations():
     if filepath is not None:
         data = pd.read_csv(filepath)
         dois = data.doi.unique()
-        with open('.//processed_data//testset.csv', 'a', newline='') as f_object: 
+        with open('.//processed_data//citations.csv', 'a', newline='') as f_object:
+
             # Pass the CSV  file object to the writer() function
             writer_object = writer(f_object)
+
+            if os.stat('.//processed_data//citations.csv').st_size == 0:
+                writer_object.writerow(['doi1', 'doi2'])
             # Result - a writer object
             for i in range(min(len(dois), 10)):
                 doi = dois[i]

@@ -40,7 +40,7 @@ with DAG(
         return f'CREATE (n:Discipline {{discipline: "{category_name}"}})'
 
     def create_article_version_node(doi, version, created):
-        return f'CREATE (n:Version {{doi: "{doi}", version: "{version}", created: "{created}""}})'
+        return f'CREATE (n:Version {{doi: "{doi}", version: "{version}", created: "{created}"}})'
 
     def create_year_node(year):
         return f'CREATE (n:Year {{year: "{year}"}})'
@@ -60,8 +60,17 @@ with DAG(
                 f'WHERE a.doi = "{doi}" AND b.discipline = "{discipline}"' 
                 f'CREATE (a)-[r:BELONGS_TO]->(b)')
 
+    def create_has_relationship(doi, version):
+        return (f'MATCH (a:Article), (b:Version)' 
+                f'WHERE a.doi = "{doi}" AND b.doi = "{doi}" AND b.version = "{version}"' 
+                f'MERGE (a)-[r:HAS]->(b)')
+
     def node_exists(type, field, id):
         return (f'OPTIONAL MATCH (n:{type} {{{field}: "{id}" }})'
+                f'RETURN n IS NOT NULL AS Predicate')
+    
+    def article_version_exists(doi, version):
+        return (f'OPTIONAL MATCH (n:Version {{doi: "{doi}", version: "{version}"}})'
                 f'RETURN n IS NOT NULL AS Predicate')
     
     def relationship_exists(type_r, type_a, type_b, field_a, field_b, id_a, id_b):
@@ -114,6 +123,9 @@ with DAG(
                     
                     if (not session.run(node_exists('Discipline', 'discipline', cat[row['categories'].split(" ")[0]])).single().value()):
                         session.run(create_discipline_node(cat[row['categories'].split(" ")[0]]))
+
+                    if (not session.run(article_version_exists(row['doi'], row['version'])).single().value()):
+                        session.run(create_article_version_node(row['doi'], row['version'], row['year']))
                     
                     if (not session.run(relationship_exists('AUTHORS', 'Author', 'Article', 'name', 'doi', row['author'], row['doi'])).single().value()):
                         session.run(create_authorship_relationship(row['doi'], row['author']))
@@ -123,6 +135,8 @@ with DAG(
 
                     if (not session.run(relationship_exists('BELONGS_TO', 'Article', 'Discipline', 'doi', 'discipline', row['doi'], cat[row['categories'].split(" ")[0]])).single().value()):
                         session.run(create_belongs_to_relationship(row['doi'], cat[row['categories'].split(" ")[0]]))
+                    
+                    session.run(create_has_relationship(row['doi'], row['version']))
 
             driver.close()
 
