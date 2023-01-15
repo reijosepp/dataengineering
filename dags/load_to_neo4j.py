@@ -35,8 +35,8 @@ with DAG(
     def create_journal_node(journal):
         return f'CREATE (n:Journal {{journal: "{journal}"}})'
     
-    def create_category_node(category):
-        return f'CREATE (n:Category {{category: "{category}"}})'
+    def create_category_node(category, category_name):
+        return f'CREATE (n:Category {{category: "{category}", category_name: "{category_name}"}})'
 
     def create_article_version_node(doi, version, created):
         return f'CREATE (n:Version {{doi: "{doi}", version: "{version}", created: "{created}""}})'
@@ -82,6 +82,13 @@ with DAG(
 
         filepath = get_csv_filename()
 
+        categories_lookup_table_filename = './/data//categories_lookup.csv'
+        categories_lookup = pd.read_csv(categories_lookup_table_filename)
+        cat = {}
+        for i in range(len(categories_lookup)):
+            row = categories_lookup.iloc[i, :]
+            cat[row['category']] = row['category_name']
+
         if filepath is not None:
 
             print('Loading!' + filepath)
@@ -92,23 +99,25 @@ with DAG(
                 for i in range(len(data)):
 
                     row = data.iloc[i, :]
+                    row['title'] = str(row['title']).replace('"', '').replace('\\', '')
+                    row['journal-ref'] = str(row['journal-ref']).replace('"', '').replace('\\', '')
 
                     if (not session.run(node_exists('Article', 'doi', row['doi'])).single().value()):
-                        session.run(create_article_node(row['doi'], row['title'].replace('"', '').replace('\\', ''), row['pages'], row['figures']))
+                        session.run(create_article_node(row['doi'], row['title'], row['pages'], row['figures']))
                     
                     if (not session.run(node_exists('Author', 'author', row['author'])).single().value()):
                         session.run(create_author_node(row['author']))
                     
-                    if (not session.run(node_exists('Journal', 'journal', str(row['journal-ref']).replace('"', ''))).single().value()):
+                    if (not session.run(node_exists('Journal', 'journal', row['journal-ref'])).single().value()):
                         session.run(create_journal_node(str(row['journal-ref']).replace('"', '')))
                     
                     if (not session.run(node_exists('Category', 'category', row['categories'])).single().value()):
-                        session.run(create_category_node(row['categories']))
+                        session.run(create_category_node(row['categories'], cat[row['category']]))
                     
                     if (not session.run(relationship_exists('AUTHORS', 'Author', 'Article', 'name', 'doi', row['author'], row['doi'])).single().value()):
                         session.run(create_authorship_relationship(row['doi'], row['author']))
 
-                    if (not session.run(relationship_exists('IS_PUBLISHED_IN', 'Article', 'Journal', 'doi', 'journal', row['doi'], str(row['journal-ref']).replace('"', ''))).single().value()):
+                    if (not session.run(relationship_exists('IS_PUBLISHED_IN', 'Article', 'Journal', 'doi', 'journal', row['doi'], row['journal-ref'])).single().value()):
                         session.run(create_is_published_in_relationship(row['doi'], str(row['journal-ref']).replace('"', '')))
 
                     if (not session.run(relationship_exists('BELONGS_TO', 'Article', 'Category', 'doi', 'category', row['doi'], row['categories'])).single().value()):
