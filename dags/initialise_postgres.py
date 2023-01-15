@@ -15,7 +15,7 @@ DEFAULT_ARGS = {
     'retry_delay': timedelta(minutes=5)
 }
 
-DATA_FOLDER = '/tmp/data'
+SQL_FOLDER = os.getcwd() + '/sql'
 LOOKUP_TABLES = os.getcwd()
 
 initialise_postgres_dag = DAG(
@@ -23,7 +23,7 @@ initialise_postgres_dag = DAG(
     schedule_interval='@once', # execute every minute
     start_date=days_ago(1),
     catchup=False, # in case execution has been paused, should it execute everything in between
-    template_searchpath=DATA_FOLDER, # the PostgresOperator will look for files in this folder
+    template_searchpath=SQL_FOLDER, # the PostgresOperator will look for files in this folder
     default_args=DEFAULT_ARGS, # args assigned to all operators
 )
 
@@ -76,11 +76,11 @@ third_task = PythonOperator(
     python_callable=insert_category,
     op_kwargs={
         'input_folder': LOOKUP_TABLES,
-        'output_folder': DATA_FOLDER,
+        'output_folder': SQL_FOLDER,
     },
 )
 fourth_task = PostgresOperator(
-    task_id='insert_stg_to_db',
+    task_id='insert_category_to_db',
     dag=initialise_postgres_dag,
     postgres_conn_id='airflow_pg',
     sql='initialise_insert.sql',

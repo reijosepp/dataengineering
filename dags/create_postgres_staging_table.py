@@ -55,7 +55,7 @@ def create_staging(input_folder, output_folder):
               id = row["id"]
               submitter = str(row["submitter"]).replace("'","").replace("{","\{").replace("=","\=").replace("}","\}")
               title = str(row["title"]).replace("'","").replace("{","\{").replace("=","\=").replace("}","\}")
-              categories = row["categories"]
+              categories = str(row["categories"]).split(" ")[0]
               update_date = row["update_date"]
               pages = row["pages"]
               figures = row["figures"]
@@ -75,7 +75,7 @@ create_staging_dag = DAG(
     schedule_interval='@once', # execute once
     start_date=days_ago(1), #must run manually
     catchup=False, # in case execution has been paused, should it execute everything in between
-    template_searchpath=PROCESSED_FOLDER+"/processed_data", # the PostgresOperator will look for files in this folder
+    template_searchpath=SQL_FOLDER, # the PostgresOperator will look for files in this folder
     default_args=DEFAULT_ARGS, # args assigned to all operators
 )
 
@@ -94,7 +94,7 @@ third_task = PostgresOperator(
     task_id='insert_stg_to_db',
     dag=create_staging_dag,
     postgres_conn_id='airflow_pg',
-    sql=f'{SQL_FOLDER}/staging_insert.sql',
+    sql='/staging_insert.sql',
     trigger_rule='none_failed',
     autocommit=True,
 )
