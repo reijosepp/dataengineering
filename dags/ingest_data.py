@@ -6,8 +6,6 @@ import crossref_commons.retrieval
 import pandas as pd
 import os
 import numpy as np
-from fastparquet import ParquetFile
-from fastparquet import write
 from datetime import datetime
 
 
@@ -90,7 +88,7 @@ def transform_data(input_folder,output_folder):
     articles['created'] = articles['created'].str.slice(5, 16)
     articles['created'] = articles['created'].replace(r"^ +| +$", r"", regex=True)
     articles['created'] = pd.to_datetime(articles['created'], format='%d %b %Y')
-    write(f'{output_folder}/processed_data/articles.parq', articles)
+    articles.to_csv((f'{output_folder}/processed_data/articles.csv'))
 
 
 first_task = PythonOperator(
