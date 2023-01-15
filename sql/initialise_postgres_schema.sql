@@ -62,7 +62,7 @@ create table if not exists public.article (
 	article_id serial not null unique,
 	arxiv_id varchar not null unique,
 	title varchar,
-	doi varchar,
+	doi varchar unique,
 	pages integer,
 	figures integer,
 	journal_id integer,
@@ -90,12 +90,12 @@ create table if not exists public.article_version (
 -- create bridge table CITATION
 create table if not exists public.citation (
 
-	article_id integer not null,
-	cited_article_id integer not null,
+	doi_1 varchar not null,
+	doi_2 varchar not null,
 	
-	foreign key (article_id) references article(article_id),
-	foreign key (cited_article_id) references article(article_id),
-	primary key (article_id, cited_article_id)
+	foreign key (doi_1) references article(doi),
+	foreign key (doi_2) references article(doi),
+	primary key (doi_1, doi_2)
 
 );
 

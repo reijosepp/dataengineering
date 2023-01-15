@@ -61,19 +61,20 @@ def transform_data(source_folder,output_folder):
         articles['pages'] = articles['pages'].astype('str') 
         articles["pages"] = articles["pages"].replace("[]","0")
         articles["pages"] = articles["pages"].str.extract("(\d+)")
+        articles['pages'] = articles['pages'].fillna(0)
         ##extract figures
         articles["figures"] = articles["comments"].str.findall("\d+ figure")
         articles["figures"] = articles["figures"].replace(np.nan)
         articles['figures'] = articles['figures'].astype('str') 
         articles["figures"] = articles["figures"].replace("[]","0")
         articles["figures"] = articles["figures"].str.extract("(\d+)")
+        articles['figures'] = articles['figures'].fillna(0)
         articles = articles.drop(columns=['comments'],axis=1)
         articles['id'] = articles['id'].astype('str') 
         articles["year"] = 2000 + articles["id"].str[0].astype(int)
         articles["month"] = articles["id"].str[1:3].astype(int)
         version = articles[["doi","versions"]]
         authors = articles[["doi","authors_parsed"]]
-        categories = articles[["doi","categories"]]
         articles = articles.drop(columns=["authors","authors_parsed","versions"])
         authors['authors_parsed'] = authors['authors_parsed'].astype('string') 
         authors["authors_par_"] = authors["authors_parsed"].str.findall("\[(.*?)\]")
@@ -107,6 +108,9 @@ def transform_data(source_folder,output_folder):
         articles["title"] = articles["title"].str.replace("\\","")
         articles["submitter"] = articles["submitter"].str.replace("\\","")
         articles.replace("'","",inplace=True)
+        articles["submitter"] = articles['submitter'].str.split(" ").str[-1]
+        articles["author_type"] = articles['author'].str.replace('.', "",).str.strip().str.split(" ").str[0] ==articles["submitter"]
+        articles=articles.assign(author_type=np.where(articles['author_type'] == True, 1, 2))
         articles.to_csv((f'{output_folder}/articles.csv'), index=False)
         os.remove(article_data_path)
 
@@ -288,6 +292,28 @@ def add_citations():
 
     driver.close()
 
+def add_citations_postgres(output_folder):
+
+    filepath = f'{PROCESSED_FOLDER}/citations.csv'
+
+    citations = pd.read_csv(filepath)
+    with open(f'{output_folder}/citations_stg_insert.sql', 'w') as f:
+          data_rows = citations.iterrows()
+          for index,row in data_rows:
+              doi_1 = row["doi_1"]
+              doi_2 = row["doi_2"]
+      
+              f.write(
+                  "INSERT INTO citation VALUES ("
+                  f"'{doi_1}','{doi_2}') ON CONFLICT DO NOTHING ;\n"
+                  
+              )
+    
+    f.close()
+
+
+
+
 ############# Pipeline Tasks #############
 
 
@@ -315,7 +341,8 @@ def create_staging(input_folder, output_folder):
               'pages integer,\n'
               'figures integer,\n'
               'year VARCHAR(1000),\n'
-              'month VARCHAR(1000));\n'
+              'month VARCHAR(1000),\n'
+              'author_type integer);\n'
           )
           data_rows = data.iterrows()
           for index,row in data_rows:
@@ -329,16 +356,19 @@ def create_staging(input_folder, output_folder):
               id = row["id"]
               submitter = str(row["submitter"]).replace("'","").replace("{","\{").replace("=","\=").replace("}","\}")
               title = str(row["title"]).replace("'","").replace("{","\{").replace("=","\=").replace("}","\}")
-              categories = row["categories"]
+              categories = str(row["categories"]).split(" ")[0]
               update_date = row["update_date"]
               pages = row["pages"]
               figures = row["figures"]
               year = row["year"]
               month = row["month"]
+              author_type = row["author_type"]
+              journal_ref = row["journal-ref"]
+
       
               f.write(
                   "INSERT INTO staging_article_data VALUES ("
-                  f"'{article_id}','{doi}','{version_id}','{version}','{created}','{author_id}','{author}','{id}','{submitter}','{title}','{categories}','{update_date}','{pages}','{figures}','{year}','{month}') ;\n"
+                  f"'{article_id}','{doi}','{version_id}','{version}','{created}','{author_id}','{author}','{id}','{submitter}','{title}','{categories}','{update_date}','{pages}','{figures}','{year}','{month}','{author_type}','{journal_ref}') ;\n"
                   
               )
     
@@ -422,6 +452,25 @@ add_citations_neo4j_task = PythonOperator(
     dag=pipeline_dag
     )
 
+# Populate citation data to Postgres
+add_citations_postgres_task = PythonOperator(
+    task_id = 'add_postgres_citations',
+    python_callable = add_citations_postgres,
+    dag=pipeline_dag,
+        op_kwargs={
+        'output_folder': SQL_FOLDER,
+    }
+    
+)
+
+load_citations_to_postgres = PostgresOperator(
+    task_id='run_load_citations_into_postgres_sql',
+    dag=pipeline_dag,
+    postgres_conn_id='airflow_pg',
+    sql='citations_stg_insert.sql',
+    trigger_rule='none_failed',
+    autocommit=True,
+)
 
 load_to_postgres = PostgresOperator(
     task_id='run_load_into_postgres_sql',
@@ -432,7 +481,7 @@ load_to_postgres = PostgresOperator(
     autocommit=True,
 )
 
-file_sensing_task >> ingestion_task >> citations_task
+file_sensing_task >> ingestion_task >> citations_task 
 
 file_sensing_task >> ingestion_task >> populate_neo4j_data >> update_discipline_journal_ties  >> update_has_published_in_ties
 
