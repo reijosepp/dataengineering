@@ -141,31 +141,35 @@ def create_staging(output_folder):
           f.write(
               'DROP TABLE IF EXISTS staging_article_data; \n'
               'CREATE TABLE IF NOT EXISTS staging_article_data (\n'
+              'article_id VARCHAR(1000),\n'
               'doi VARCHAR(1000),\n'
+              'version_id VARCHAR(1000),\n'
               'version VARCHAR(1000),\n'
-              'created VARCHAR(1000),\n'
-              'authorid VARCHAR(1000),\n'
+              'created DATE,\n'
+              'author_id VARCHAR(1000),\n'
               'author VARCHAR(5000),\n'
               'id VARCHAR(1000),\n'
               'submitter VARCHAR(1000),\n'
               'title VARCHAR(1000),\n'
               'categories VARCHAR(1000),\n'
               'update_date VARCHAR(1000),\n'
-              'pages VARCHAR(1000),\n'
-              'figures VARCHAR(1000),\n'
+              'pages integer,\n'
+              'figures integer,\n'
               'year VARCHAR(1000),\n'
               'month VARCHAR(1000));\n'
           )
           data_rows = data.iterrows()
           for index,row in data_rows:
+              article_id = "NULL"
               doi = row["doi"]
+              version_id = "NULL"
               version = row["version"]
               created = row["created"]
-              authorid = "NULL"
+              author_id = "NULL"
               author = str(row["author"]).replace("'","")
               id = row["id"]
-              submitter = str(row["submitter"]).replace("'","")
-              title = str(row["title"]).replace("'","")
+              submitter = str(row["submitter"]).replace("'","").replace("{","\{").replace("=","\=").replace("}","\}")
+              title = str(row["title"]).replace("'","").replace("{","\{").replace("=","\=").replace("}","\}")
               categories = row["categories"]
               update_date = row["update_date"]
               pages = row["pages"]
@@ -175,7 +179,7 @@ def create_staging(output_folder):
       
               f.write(
                   "INSERT INTO staging_article_data VALUES ("
-                  f"'{doi}','{version}','{created}','{authorid}','{author}','{id}','{submitter}','{title}','{categories}','{update_date}','{pages}','{figures}','{year}','{month}') ;\n"
+                  f"'{article_id}','{doi}','{version_id}','{version}','{created}','{author_id}','{author}','{id}','{submitter}','{title}','{categories}','{update_date}','{pages}','{figures}','{year}','{month}') ;\n"
                   
               )
     
@@ -201,4 +205,4 @@ third_task = PostgresOperator(
     autocommit=True,
 )
 
-first_task >> second_task >> third_task
+first_task  >> second_task >> third_task
