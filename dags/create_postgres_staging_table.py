@@ -7,6 +7,15 @@ import pandas as pd
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
 import os
 
+DEFAULT_ARGS = {
+    'owner': 'Tartu',
+    'depends_on_past': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5)
+}
+
+PROCESSED_FOLDER = './/processed_data'
+SQL_FOLDER = './/sql'
 
 def create_staging(input_folder, output_folder):
     filepath = f'{input_folder}/articles.csv'
@@ -61,9 +70,18 @@ def create_staging(input_folder, output_folder):
     
       f.close()
 
+create_staging_dag = DAG(
+    dag_id='create_postgres_staging_table', # name of dag
+    schedule_interval='@once', # execute once
+    start_date=days_ago(1), #must run manually
+    catchup=False, # in case execution has been paused, should it execute everything in between
+    template_searchpath=PROCESSED_FOLDER+"/processed_data", # the PostgresOperator will look for files in this folder
+    default_args=DEFAULT_ARGS, # args assigned to all operators
+)
+
 second_task = PythonOperator(
     task_id='prepare_stg_insert_stmt',
-    dag=ingest_data_dag,
+    dag=create_staging_dag,
     trigger_rule='none_failed',
     python_callable=create_staging,
     op_kwargs={
@@ -74,12 +92,11 @@ second_task = PythonOperator(
 
 third_task = PostgresOperator(
     task_id='insert_stg_to_db',
-    dag=ingest_data_dag,
+    dag=create_staging_dag,
     postgres_conn_id='airflow_pg',
-    sql=f'{SQL_FOLDER}//staging_insert.sql',
+    sql=f'{SQL_FOLDER}/staging_insert.sql',
     trigger_rule='none_failed',
     autocommit=True,
 )
 
-
->> second_task >> third_task
+second_task >> third_task

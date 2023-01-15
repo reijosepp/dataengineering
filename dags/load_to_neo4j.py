@@ -25,7 +25,7 @@ with DAG(
 
     ############# Neo4j Functions #############
 
-    driver = neo4j.GraphDatabase.driver('bolt://172.25.0.3', auth=None)
+    driver = neo4j.GraphDatabase.driver('bolt://172.25.0.4', auth=None)
 
     def create_article_node(doi, title, pages, figures):
         return f'CREATE (n:Article {{doi: "{doi}", title: "{title}", pages: {pages}, figures: {figures}}})'
