@@ -3,6 +3,10 @@ from datetime import timedelta
 from airflow import DAG
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.utils.dates import days_ago
+import pandas as pd
+from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
+import os
+
 
 DEFAULT_ARGS = {
     'owner': 'Tartu',
@@ -12,6 +16,7 @@ DEFAULT_ARGS = {
 }
 
 DATA_FOLDER = '/tmp/data'
+LOOKUP_TABLES = os.getcwd()
 
 initialise_postgres_dag = DAG(
     dag_id='initialise_postgres', # name of dag
@@ -40,4 +45,47 @@ second_task = PostgresOperator(
     autocommit=True,
 )
 
-first_task >> second_task
+
+
+
+def insert_category(input_folder,output_folder):
+    filepath = f'{input_folder}/lookup_tables/categories_lookup.csv'
+
+    data = pd.read_csv(filepath)
+    with open(f'{output_folder}/initialise_insert.sql', 'w') as f:
+        data_rows = data.iterrows()
+        for index,row in data_rows:
+            category_code = row["category"]
+            category_name = row["category_name"]
+
+    
+            f.write(
+                "INSERT INTO category VALUES ("
+                f"'{category_code}','{category_name}') ;\n"
+                
+            )
+    
+    f.close()
+
+
+
+third_task = PythonOperator(
+    task_id='prepare_category_table',
+    dag=initialise_postgres_dag,
+    trigger_rule='none_failed',
+    python_callable=insert_category,
+    op_kwargs={
+        'input_folder': LOOKUP_TABLES,
+        'output_folder': DATA_FOLDER,
+    },
+)
+fourth_task = PostgresOperator(
+    task_id='insert_stg_to_db',
+    dag=initialise_postgres_dag,
+    postgres_conn_id='airflow_pg',
+    sql='initialise_insert.sql',
+    trigger_rule='none_failed',
+    autocommit=True,
+)
+
+first_task >> second_task >> third_task >> fourth_task
