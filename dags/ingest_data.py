@@ -113,7 +113,7 @@ task = PythonOperator(
     op_kwargs={
         'source_folder': SOURCE_FOLDER,
         'output_folder': PROCESSED_FOLDER,
-    },
+    }
 )
 
 task
