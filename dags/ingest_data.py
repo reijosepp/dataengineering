@@ -72,13 +72,24 @@ def transform_data(input_folder,output_folder):
     articles["year"] = 2000 + articles["id"].str[0].astype(int)
     articles["month"] = articles["id"].str[1:3].astype(int)
     version = articles[["doi","versions"]]
-    authors = articles[["doi","authors"]]
+    authors = articles[["doi","authors_parsed"]]
     categories = articles[["doi","categories"]]
     articles = articles.drop(columns=["authors","authors_parsed","versions"])
-    authors["authors"] = authors["authors"].str.replace(" and ",",")
-    authors["authors"] = authors["authors"].str.split(",")
-    authors = authors.explode("authors")
-    authors.rename(columns = {'authors':'author'}, inplace = True)
+    authors['authors_parsed'] = authors['authors_parsed'].astype('string') 
+    authors["authors_par_"] = authors["authors_parsed"].str.findall("\[(.*?)\]")
+    authors['authors_par_'] = authors['authors_par_'].astype('str') 
+    authors["authors_par_"] = authors["authors_par_"].str.replace("[","")
+    authors["authors_par_"] = authors["authors_par_"].str.replace("]","")
+    authors["authors_par_"] = authors["authors_par_"].str.replace(",",".")
+    authors["authors_par_"] = authors["authors_par_"].str.split("\'\'\"")
+    authors = authors.explode("authors_par_")
+    authors["authors_par_"] = authors["authors_par_"].str.replace("\'","")
+    authors["authors_par_"] = authors["authors_par_"].str.replace("\"","")
+    authors["authors_par_"] = authors["authors_par_"].str.lstrip(".")
+    authors = authors[authors['authors_par_'].str.strip().astype(bool)]
+    authors.rename(columns = {'authors_par_':'author'}, inplace = True)
+    authors = authors.drop(columns=["authors_parsed"])
+    #articles
     articles = (pd.merge(authors, articles, on='doi',  how='left'))
     versions_split = (pd.concat({k: pd.DataFrame(v) for k, v in version.pop('versions').items()})
          .reset_index(level=1, drop=True))
