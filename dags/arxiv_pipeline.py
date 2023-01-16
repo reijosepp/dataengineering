@@ -298,16 +298,27 @@ def add_citations_postgres(output_folder):
 
     citations = pd.read_csv(filepath)
     with open(f'{output_folder}/citations_stg_insert.sql', 'w') as f:
-          data_rows = citations.iterrows()
-          for index,row in data_rows:
-              doi_1 = row["doi_1"]
-              doi_2 = row["doi_2"]
+
+        data_rows = citations.iterrows()
+        f.write(
+              'DROP TABLE IF EXISTS staging_citation_data; \n'
+              'CREATE TABLE IF NOT EXISTS staging_citation_data (\n'
+              'doi_1 VARCHAR(1000),\n'
+              'article_id_1 integer,\n'
+              'article_id_2 integer,\n'
+              'doi_2 VARCHAR(1000));\n'
+          )
+        for index,row in data_rows:
+              doi_1 = row["doi1"]
+              doi_2 = str(row["doi2"]).replace("'","").replace("{","\{").replace("=","\=").replace("}","\}")
+
       
               f.write(
-                  "INSERT INTO citation VALUES ("
-                  f"'{doi_1}','{doi_2}') ON CONFLICT DO NOTHING ;\n"
+                  "INSERT INTO staging_citation_data VALUES ("
+                  f"'{doi_1}',NULL,NULL,'{doi_2}') ON CONFLICT DO NOTHING ;\n"
                   
-              )
+            )
+
     
     f.close()
 
@@ -342,7 +353,8 @@ def create_staging(input_folder, output_folder):
               'figures integer,\n'
               'year VARCHAR(1000),\n'
               'month VARCHAR(1000),\n'
-              'author_type integer);\n'
+              'author_type integer,\n'
+              'journal_ref VARCHAR(1000));\n'
           )
           data_rows = data.iterrows()
           for index,row in data_rows:
@@ -354,8 +366,8 @@ def create_staging(input_folder, output_folder):
               author_id = "NULL"
               author = str(row["author"]).replace("'","")
               id = row["id"]
-              submitter = str(row["submitter"]).replace("'","").replace("{","\{").replace("=","\=").replace("}","\}")
-              title = str(row["title"]).replace("'","").replace("{","\{").replace("=","\=").replace("}","\}")
+              submitter = str(row["submitter"]).replace("'","").replace("{","").replace("=","").replace("}","")
+              title = str(row["title"]).replace("'","").replace("{","").replace("=","").replace("}","")
               categories = str(row["categories"]).split(" ")[0]
               update_date = row["update_date"]
               pages = row["pages"]
@@ -363,7 +375,7 @@ def create_staging(input_folder, output_folder):
               year = row["year"]
               month = row["month"]
               author_type = row["author_type"]
-              journal_ref = row["journal-ref"]
+              journal_ref = str(row["journal-ref"]).replace("'","")
 
       
               f.write(
@@ -371,7 +383,7 @@ def create_staging(input_folder, output_folder):
                   f"'{article_id}','{doi}','{version_id}','{version}','{created}','{author_id}','{author}','{id}','{submitter}','{title}','{categories}','{update_date}','{pages}','{figures}','{year}','{month}','{author_type}','{journal_ref}') ;\n"
                   
               )
-    
+
       f.close()
 
 
@@ -481,12 +493,23 @@ load_to_postgres = PostgresOperator(
     autocommit=True,
 )
 
-file_sensing_task >> ingestion_task >> citations_task 
+load_citations_to_dwh = PostgresOperator(
+    task_id='run_load_citations_into_dwh',
+    dag=pipeline_dag,
+    postgres_conn_id='airflow_pg',
+    sql='citation_dwh_insert.sql',
+    trigger_rule='none_failed',
+    autocommit=True,
+)
+
+file_sensing_task >> ingestion_task >> citations_task  >> add_citations_postgres_task >> load_citations_to_postgres 
 
 file_sensing_task >> ingestion_task >> populate_neo4j_data >> update_discipline_journal_ties  >> update_has_published_in_ties
 
 file_sensing_task >> ingestion_task >> create_staging_sql >> run_staging_sql >> load_to_postgres
 
 [update_has_published_in_ties, citations_task] >> add_citations_neo4j_task
+
+[load_citations_to_postgres, load_to_postgres] >> load_citations_to_dwh
 
 

@@ -3,7 +3,7 @@ from datetime import datetime, date, timedelta
 from airflow import DAG 
 from airflow.operators.python_operator import PythonOperator
 from airflow.utils.dates import days_ago
-from airflow.operators.sensors import ExternalTaskSensor
+#from airflow.operators.sensors import ExternalTaskSensor
 import pandas as pd
 import os
 from csv import writer
@@ -58,12 +58,12 @@ def generate_citations(io_folder):
                 # Close the file object
             f_object.close()
 
-wait_for_data = ExternalTaskSensor(
-    task_id="get_crossref",
-    external_dag_id='ingest_data',
-    external_task_id='task',
-    mode="reschedule"
-)
+#wait_for_data = ExternalTaskSensor(
+#    task_id="get_crossref",
+#    external_dag_id='ingest_data',
+#    external_task_id='task',
+#    mode="reschedule"
+#)
 
 task = PythonOperator(
     task_id = 'get_crossref',
@@ -74,4 +74,4 @@ task = PythonOperator(
     }
 )
 
-wait_for_data >> task
+#wait_for_data >> task

@@ -31,3 +31,5 @@ UPDATE article_author AS au
 SET authorship_type_id = a.author_type
 FROM staging_article_data AS a
 WHERE au.article_id = CAST(a.article_id as integer) and au.author_id = CAST(a.author_id as integer);    
+
+DROP TABLE IF EXISTS staging_citations_data;

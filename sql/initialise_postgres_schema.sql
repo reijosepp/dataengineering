@@ -90,12 +90,12 @@ create table if not exists public.article_version (
 -- create bridge table CITATION
 create table if not exists public.citation (
 
-	doi_1 varchar not null,
-	doi_2 varchar not null,
+	article_id_1 integer not null,
+	article_id_2 integer not null,
 	
-	foreign key (doi_1) references article(doi),
-	foreign key (doi_2) references article(doi),
-	primary key (doi_1, doi_2)
+	foreign key (article_id_1) references article(article_id),
+	foreign key (article_id_2) references article(article_id),
+	primary key (article_id_1, article_id_2)
 
 );
 
